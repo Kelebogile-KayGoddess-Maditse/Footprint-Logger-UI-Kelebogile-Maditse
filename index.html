@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Footprint Logger — UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#8be9a9; --glass: rgba(255,255,255,0.03);
+      --success:#16a34a; --danger:#ef4444; --radius:12px; --gap:18px; --maxw:1100px;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:linear-gradient(180deg,#071024 0%, #07172a 100%); color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; padding:28px; display:flex; justify-content:center;
+    }
+    .wrap{width:100%; max-width:var(--maxw);} 
+    header{display:flex; align-items:center; gap:16px; margin-bottom:18px}
+    header h1{margin:0;font-size:20px;letter-spacing:-0.2px}
+    header p{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid; grid-template-columns: 420px 1fr; gap:var(--gap); align-items:start}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:16px; border-radius:var(--radius); box-shadow: 0 6px 18px rgba(2,6,23,0.6);}
+
+    form .row{display:flex; gap:10px; align-items:center}
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+    select,input,button{font-family:inherit}
+    select,input[type='number'],input[type='date'], input[type='text']{width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); color:inherit}
+    .btn{padding:10px 14px;border-radius:10px; cursor:pointer; border:0; background:linear-gradient(90deg,var(--accent), #5eead4); color:#04201a; font-weight:600}
+    .btn.ghost{background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted)}
+
+    .muted{color:var(--muted); font-size:13px}
+    .small{font-size:13px}
+
+    .summary{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-top:12px}
+    .big-number{font-size:22px; font-weight:700}
+
+    .filters{display:flex; gap:8px; margin:12px 0 8px 0}
+    .pill{padding:8px 10px; border-radius:999px; font-size:13px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.03)}
+    .pill.active{background:rgba(139,233,169,0.08); border-color:rgba(139,233,169,0.12)}
+
+    .list{margin-top:12px; max-height:360px; overflow:auto}
+    .item{display:flex; gap:12px; align-items:center; padding:10px; border-radius:10px; margin-bottom:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+    .meta{flex:1}
+    .meta .title{font-weight:600}
+    .meta .sub{color:var(--muted); font-size:13px}
+    .actions{display:flex; gap:8px}
+    .tag{font-size:12px; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.03)}
+
+    /* charts */
+    .charts{display:flex; gap:16px; flex-direction:column}
+    canvas{background:transparent; border-radius:10px}
+
+    /* modal */
+    .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:linear-gradient(0deg, rgba(2,6,23,0.6), rgba(2,6,23,0.6));}
+    .modal.show{display:flex}
+    .modal-card{width:480px}
+
+    footer{margin-top:18px; color:var(--muted); font-size:13px}
+
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.charts{order:2}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:999px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M12 2C13.1046 2 14 2.8954 14 4V5H10V4C10 2.8954 10.8954 2 12 2Z" fill="#8BE9A9"/>
+          <path d="M7 8H17L20 21H4L7 8Z" fill="#5EEAD4" opacity="0.2"/>
+        </svg>
+        <div>
+          <h1 style="margin:0">Footprint Logger</h1>
+          <p style="margin:0" class="muted">Log activities, estimate CO₂ and visualise your impact</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section>
+        <div class="card">
+          <form id="activity-form" aria-label="Add footprint">
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px">
+              <div style="flex:1">
+                <label for="activity-select">Activity</label>
+                <select id="activity-select" required></select>
+              </div>
+              <div style="width:110px">
+                <label for="qty-input">Quantity</label>
+                <input id="qty-input" type="number" step="any" min="0" value="1" required />
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-bottom:8px; align-items:end">
+              <div style="flex:1">
+                <label for="co2-input">CO₂ per unit (kg)</label>
+                <input id="co2-input" type="number" step="any" min="0" required />
+                <div class="muted small" style="margin-top:6px">You can choose a predefined activity or enter a custom one.</div>
+              </div>
+
+              <div style="width:160px">
+                <label for="date-input">Date</label>
+                <input id="date-input" type="date" />
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
+              <button type="submit" class="btn">Add entry</button>
+              <button type="button" id="clear-form" class="btn ghost">Reset</button>
+              <div style="margin-left:auto" class="muted small">Local-only — saved in your browser</div>
+            </div>
+          </form>
+
+          <div class="filters" style="margin-top:16px">
+            <button class="pill active" data-cat="all">All</button>
+            <button class="pill" data-cat="transport">Transport</button>
+            <button class="pill" data-cat="food">Food</button>
+            <button class="pill" data-cat="energy">Energy</button>
+            <button class="pill" data-cat="other">Other</button>
+          </div>
+
+          <div class="summary">
+            <div>
+              <div class="muted">Running total (kg CO₂)</div>
+              <div class="big-number" id="running-total">0</div>
+              <div class="muted small">Entries: <span id="entry-count">0</span></div>
+            </div>
+            <div style="text-align:right">
+              <button id="clear-data" class="btn ghost">Clear all data</button>
+            </div>
+          </div>
+
+          <div class="list" id="activity-list" aria-live="polite" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card charts">
+          <h3 style="margin-top:0">Visual summary</h3>
+          <canvas id="pieChart" width="400" height="200" aria-label="Category breakdown"></canvas>
+          <canvas id="barChart" width="400" height="220" aria-label="Last 7 days"></canvas>
+        </div>
+        <footer style="margin-top:12px">
+          <div class="card muted">Tip: open devtools &ldquo;Application&rdquo; → Local Storage to inspect saved entries (key: <code>footprintLogger_v1</code>).</div>
+        </footer>
+      </aside>
+    </main>
+
+    <!-- modal for edit -->
+    <div id="modal" class="modal" role="dialog" aria-modal="true">
+      <div class="card modal-card">
+        <h3 style="margin-top:0">Edit entry</h3>
+        <form id="edit-form">
+          <label class="small">Activity name</label>
+          <input id="edit-name" type="text" required />
+          <div style="display:flex; gap:10px; margin-top:8px">
+            <div style="flex:1">
+              <label class="small">Quantity</label>
+              <input id="edit-qty" type="number" step="any" min="0" required />
+            </div>
+            <div style="width:160px">
+              <label class="small">CO₂ per unit (kg)</label>
+              <input id="edit-co2" type="number" step="any" min="0" required />
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:10px; justify-content:flex-end">
+            <button type="button" id="cancel-edit" class="btn ghost">Cancel</button>
+            <button type="submit" class="btn">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script type="module">
+      // Footprint Logger — single-file app (ES modules, modern APIs)
+
+      const STORAGE_KEY = 'footprintLogger_v1';
+
+      // Predefined activities with example CO₂ intensity in kg per unit.
+      const PREDEFINED = [
+        { id: 'car', name: 'Car (petrol)', category: 'transport', unit: 'km', co2: 0.192 },
+        { id: 'bus', name: 'Bus', category: 'transport', unit: 'km', co2: 0.089 },
+        { id: 'train', name: 'Train', category: 'transport', unit: 'km', co2: 0.041 },
+        { id: 'flight', name: 'Flight (avg)', category: 'transport', unit: 'km', co2: 0.255 },
+        { id: 'beef', name: 'Beef meal', category: 'food', unit: 'meal', co2: 6.0 },
+        { id: 'chicken', name: 'Chicken meal', category: 'food', unit: 'meal', co2: 1.5 },
+        { id: 'electricity', name: 'Electricity', category: 'energy', unit: 'kWh', co2: 0.475 },
+      ];
+
+      // Small utility helpers
+      const $ = (sel, root = document) => root.querySelector(sel);
+      const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+      const uid = () => (crypto?.randomUUID?.() ?? (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+      const round = (v, p = 3) => Math.round(v * 10**p) / 10**p;
+      const formatDate = d => new Date(d).toLocaleDateString();
+      const isoDay = d => new Date(d).toISOString().split('T')[0];
+
+      class FootprintApp {
+        constructor() {
+          this.entries = []; // saved entries
+          this.filter = 'all';
+          this.pieChart = null;
+          this.barChart = null;
+
+          // form elements
+          this.select = $('#activity-select');
+          this.qty = $('#qty-input');
+          this.co2Input = $('#co2-input');
+          this.dateInput = $('#date-input');
+          this.form = $('#activity-form');
+          this.listEl = $('#activity-list');
+          this.totalEl = $('#running-total');
+          this.countEl = $('#entry-count');
+          this.pillEls = $$('.pill');
+          this.clearDataBtn = $('#clear-data');
+          this.clearFormBtn = $('#clear-form');
+
+          // edit modal
+          this.modal = $('#modal');
+          this.editForm = $('#edit-form');
+          this.editName = $('#edit-name');
+          this.editQty = $('#edit-qty');
+          this.editCo2 = $('#edit-co2');
+
+          this.editingId = null;
+        }
+
+        init(){
+          this.populateSelect();
+          this.load();
+          this.bind();
+          this.render();
+          this.setupCharts();
+        }
+
+        populateSelect(){
+          // add predefined activities
+          const optFrag = document.createDocumentFragment();
+          PREDEFINED.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = `${a.name} — ${a.unit}`;
+            opt.dataset.co2 = a.co2;
+            opt.dataset.unit = a.unit;
+            opt.dataset.category = a.category;
+            optFrag.appendChild(opt);
+          });
+          const customOpt = document.createElement('option');
+          customOpt.value = 'custom';
+          customOpt.textContent = 'Custom activity...';
+          optFrag.appendChild(customOpt);
+          this.select.appendChild(optFrag);
+          // set defaults
+          this.select.selectedIndex = 0;
+          this.updateCo2FromSelect();
+          this.dateInput.value = isoDay(new Date());
+        }
+
+        bind(){
+          // form submit
+          this.form.addEventListener('submit', e => {
+            e.preventDefault();
+            this.handleAdd();
+          });
+
+          this.select.addEventListener('change', () => this.updateCo2FromSelect());
+          this.clearFormBtn.addEventListener('click', () => this.resetForm());
+
+          // filters
+          this.pillEls.forEach(p => p.addEventListener('click', (e)=>{
+            this.pillEls.forEach(x => x.classList.remove('active'));
+            p.classList.add('active');
+            this.filter = p.dataset.cat;
+            this.render();
+          }));
+
+          // list actions (delegate)
+          this.listEl.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-id]');
+            if(!el) return;
+            const id = el.dataset.id;
+            if(e.target.matches('.delete')) return this.deleteEntry(id);
+            if(e.target.matches('.edit')) return this.openEdit(id);
+          });
+
+          this.clearDataBtn.addEventListener('click', ()=>{
+            if(confirm('Clear ALL entries? This cannot be undone.')){
+              this.entries = [];
+              this.save(); this.render();
+            }
+          });
+
+          // modal controls
+          $('#cancel-edit').addEventListener('click', ()=> this.closeModal());
+          this.editForm.addEventListener('submit', (ev)=>{
+            ev.preventDefault(); this.saveEdit();
+          });
+
+          // keyboard shortcuts
+          document.addEventListener('keydown', (e)=>{
+            if(e.key === 'Escape') this.closeModal();
+          });
+        }
+
+        updateCo2FromSelect(){
+          const val = this.select.value;
+          if(val === 'custom'){
+            this.co2Input.value = '';
+            this.co2Input.placeholder = 'enter kg CO₂ per unit';
+            this.co2Input.focus();
+          } else {
+            const opt = this.select.selectedOptions[0];
+            this.co2Input.value = parseFloat(opt.dataset.co2) ?? '';
+            this.co2Input.placeholder = '';
+          }
+        }
+
+        validateEntry({name, qty, co2}){
+          if(!name || qty <= 0 || co2 < 0) return false;
+          return true;
+        }
+
+        handleAdd(){
+          // gather values
+          const selected = this.select.value;
+          let name, category, unit;
+          if(selected === 'custom'){
+            name = prompt('Name your custom activity (e.g. "Biking")')?.trim();
+            if(!name) return alert('Activity name is required for custom activities.');
+            category = 'other';
+            unit = 'unit';
+          } else {
+            const opt = this.select.selectedOptions[0];
+            name = opt.textContent.split(' — ')[0];
+            category = opt.dataset.category;
+            unit = opt.dataset.unit;
+          }
+
+          const qty = parseFloat(this.qty.value) || 0;
+          const co2PerUnit = parseFloat(this.co2Input.value) || 0;
+          const date = this.dateInput.value || isoDay(new Date());
+
+          if(!this.validateEntry({name, qty, co2: co2PerUnit})) return alert('Please provide valid inputs (quantity > 0, CO₂ >= 0).');
+
+          const entry = {
+            id: uid(), name, category, unit, qty, co2PerUnit: round(co2PerUnit,4), co2Total: round(qty * co2PerUnit,4), date
+          };
+
+          this.entries.unshift(entry);
+          this.save();
+          this.render();
+          this.resetForm();
+        }
+
+        resetForm(){
+          this.select.selectedIndex = 0; this.updateCo2FromSelect(); this.qty.value = 1; this.dateInput.value = isoDay(new Date());
+        }
+
+        save(){
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.entries));
+        }
+
+        load(){
+          try{
+            const raw = localStorage.getItem(STORAGE_KEY);
+            this.entries = raw ? JSON.parse(raw) : [];
+          }catch(e){ this.entries = []; }
+        }
+
+        render(){
+          this.renderList();
+          this.renderTotals();
+          this.updateCharts();
+        }
+
+        renderList(){
+          const data = this.filteredEntries();
+          this.listEl.innerHTML = '';
+          if(!data.length){ this.listEl.innerHTML = '<div class="muted">No entries yet — add your first activity!</div>'; return }
+
+          const frag = document.createDocumentFragment();
+          for(const e of data){
+            const item = document.createElement('div'); item.className = 'item'; item.dataset.id = e.id;
+            item.innerHTML = `
+              <div style="width:54px;flex-shrink:0">
+                <div class="tag">${e.unit}</div>
+              </div>
+              <div class="meta">
+                <div class="title">${e.name}</div>
+                <div class="sub">${formatDate(e.date)} • ${e.qty} ${e.unit} • <span class="muted">${e.category}</span></div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:700">${e.co2Total} kg</div>
+                <div class="muted small">${e.co2PerUnit} / ${e.unit}</div>
+              </div>
+              <div class="actions">
+                <button class="btn ghost edit" title="Edit">Edit</button>
+                <button class="btn ghost delete" title="Delete">Delete</button>
+              </div>
+            `;
+            frag.appendChild(item);
+          }
+          this.listEl.appendChild(frag);
+        }
+
+        filteredEntries(){
+          if(this.filter === 'all') return this.entries;
+          return this.entries.filter(e => e.category === this.filter);
+        }
+
+        renderTotals(){
+          const total = round(this.entries.reduce((s,e)=> s + (parseFloat(e.co2Total)||0), 0),3);
+          this.totalEl.textContent = total;
+          this.countEl.textContent = this.entries.length;
+        }
+
+        deleteEntry(id){
+          if(!confirm('Delete this entry?')) return;
+          this.entries = this.entries.filter(e => e.id !== id);
+          this.save(); this.render();
+        }
+
+        openEdit(id){
+          const e = this.entries.find(x => x.id === id); if(!e) return;
+          this.editingId = id;
+          this.editName.value = e.name; this.editQty.value = e.qty; this.editCo2.value = e.co2PerUnit;
+          this.modal.classList.add('show');
+        }
+
+        closeModal(){ this.modal.classList.remove('show'); this.editingId = null; }
+
+        saveEdit(){
+          if(!this.editingId) return;
+          const idx = this.entries.findIndex(x=> x.id === this.editingId);
+          if(idx === -1) return;
+          const name = this.editName.value.trim();
+          const qty = parseFloat(this.editQty.value) || 0;
+          const co2 = parseFloat(this.editCo2.value) || 0;
+          if(!this.validateEntry({name, qty, co2})) return alert('Invalid inputs.');
+          this.entries[idx].name = name;
+          this.entries[idx].qty = qty;
+          this.entries[idx].co2PerUnit = round(co2,4);
+          this.entries[idx].co2Total = round(qty * co2,3);
+          this.save(); this.render(); this.closeModal();
+        }
+
+        // Charts
+        setupCharts(){
+          const pieCtx = document.getElementById('pieChart').getContext('2d');
+          const barCtx = document.getElementById('barChart').getContext('2d');
+
+          this.pieChart = new Chart(pieCtx, {
+            type: 'pie', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] }, options: { plugins:{legend:{position:'bottom'}} }
+          });
+
+          this.barChart = new Chart(barCtx, {
+            type: 'bar', data: { labels: [], datasets: [{ label: 'kg CO₂', data: [] }] }, options: { scales:{y:{beginAtZero:true}} }
+          });
+
+          // initial update
+          this.updateCharts();
+        }
+
+        updateCharts(){
+          if(!this.pieChart || !this.barChart) return;
+
+          // pie: aggregate by category
+          const byCat = this.entries.reduce((acc,e)=>{
+            acc[e.category] = (acc[e.category]||0) + (parseFloat(e.co2Total)||0); return acc;
+          }, {});
+          const catLabels = Object.keys(byCat);
+          const catData = catLabels.map(k => round(byCat[k],3));
+
+          // generate simple colors
+          const palette = ['#60a5fa','#f97316','#f43f5e','#8be9a9','#818cf8','#f59e0b'];
+          const colors = catLabels.map((_,i)=> palette[i % palette.length]);
+
+          this.pieChart.data.labels = catLabels.length? catLabels : ['No data'];
+          this.pieChart.data.datasets[0].data = catData.length? catData : [1];
+          this.pieChart.data.datasets[0].backgroundColor = colors;
+          this.pieChart.update();
+
+          // bar: last 7 days aggregated
+          const days = 7; const now = new Date();
+          const dayMap = {};
+          for(let i=days-1;i>=0;i--){ const d = new Date(now); d.setDate(now.getDate()-i); dayMap[isoDay(d)] = 0; }
+          for(const e of this.entries){ if(dayMap.hasOwnProperty(e.date)) dayMap[e.date] += parseFloat(e.co2Total) || 0; }
+          const labels = Object.keys(dayMap).map(k=> k);
+          const values = Object.values(dayMap).map(v=> round(v,3));
+
+          this.barChart.data.labels = labels.map(l => new Date(l).toLocaleDateString());
+          this.barChart.data.datasets[0].data = values;
+          this.barChart.update();
+        }
+
+      }
+
+      // bootstrap
+      const app = new FootprintApp();
+      app.init();
+
+      // Expose app to window for debugging (optional)
+      window.FootprintApp = app;
+
+    </script>
+  </div>
+</body>
+</html>
